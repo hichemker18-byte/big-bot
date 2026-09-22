@@ -4051,7 +4051,7 @@ def start_bot_polling():
     while True:
         try:
             bot.delete_webhook(drop_pending_updates=False)
-            bot.infinity_polling(timeout=20, long_polling_timeout=20, restart_on_change=True,
+            bot.infinity_polling(timeout=20, long_polling_timeout=20, restart_on_change=False,
                                  allowed_updates=["message", "callback_query", "chat_member", "my_chat_member"])
         except Exception as e:
             logger.warning(f"⚠️ إعادة محاولة اتصال تلقائية مع خوادم التيليجرام: {e}")
