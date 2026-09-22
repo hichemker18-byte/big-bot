@@ -4029,6 +4029,7 @@ def start_bot_polling():
 
     while True:
         try:
+            bot.delete_webhook(drop_pending_updates=False)
             bot.infinity_polling(timeout=20, long_polling_timeout=20, restart_on_change=False)
         except Exception as e:
             logger.warning(f"⚠️ إعادة محاولة اتصال تلقائية مع خوادم التيليجرام: {e}")
