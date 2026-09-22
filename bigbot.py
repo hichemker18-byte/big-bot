@@ -1,5 +1,6 @@
 ﻿import telebot
-from telebot import types, apihelper
+from telebot import types, apihelper, ExceptionHandler
+import traceback
 import sqlite3
 try:
     import psycopg2
@@ -75,6 +76,25 @@ ADMIN_ID = 5945226339  # غيره إلى معرفك الحقيقي
 
 # تهيئة البوت
 bot = telebot.TeleBot(TOKEN)
+
+
+class AdminErrorNotifier(ExceptionHandler):
+    """إرسال أي خطأ غير متوقع في المعالجات إلى المشرف الأساسي مباشرة."""
+
+    def handle(self, exception):
+        logger.error(f"خطأ في معالج: {exception}", exc_info=True)
+        try:
+            tb = traceback.format_exc()
+            msg = (f"⚠️ <b>خطأ مفاجئ في البوت:</b>\n"
+                   f"<code>{html.escape(str(exception)[:200])}</code>\n\n"
+                   f"<pre>{html.escape(tb[-1200:])}</pre>")
+            bot.send_message(ADMIN_ID, msg, parse_mode='HTML')
+        except Exception as send_err:
+            logger.error(f"فشل إرسال إشعار الخطأ للمشرف: {send_err}")
+        return True
+
+
+bot = telebot.TeleBot(TOKEN, exception_handler=AdminErrorNotifier())
 # رابط اتصال Supabase PostgreSQL
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 BOT_USERNAME = None
@@ -2693,6 +2713,7 @@ def handle_callback(call):
     user_id = call.from_user.id
     data = call.data or ""
     logger.info(f"طلب callback من user_id: {user_id}, username: {username}, callback_data: {data}")
+    print(f"[CALLBACK] {user_id} ({username}) -> {data}", flush=True)
 
     if data.startswith("u_"):
         handle_user_callback(call)
@@ -4030,9 +4051,14 @@ def start_bot_polling():
     while True:
         try:
             bot.delete_webhook(drop_pending_updates=False)
-            bot.infinity_polling(timeout=20, long_polling_timeout=20, restart_on_change=False)
+            bot.infinity_polling(timeout=20, long_polling_timeout=20, restart_on_change=True,
+                                 allowed_updates=["message", "callback_query", "chat_member", "my_chat_member"])
         except Exception as e:
             logger.warning(f"⚠️ إعادة محاولة اتصال تلقائية مع خوادم التيليجرام: {e}")
+            try:
+                bot.delete_webhook(drop_pending_updates=False)
+            except Exception:
+                pass
             time.sleep(3)
 
 # إذا كانت Flask متوفرة ونعمل على خادم (أو تحت Gunicorn)
